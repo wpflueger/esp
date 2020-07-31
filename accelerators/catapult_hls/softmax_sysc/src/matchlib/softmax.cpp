@@ -5,7 +5,7 @@
 
 #include <ac_math/ac_softmax_pwl.h>
 
-#include "ArbitratedScratchpadDPTop.h"
+//#include "ArbitratedScratchpadDPTop.h"
 
 //
 // Compute functions
@@ -109,7 +109,9 @@ LOAD_LOOP:
 #pragma hls_unroll no
 LOAD_ARBITER_COMPLETE_LOOP:
             while (!complete) {
-                ArbitratedScratchpadDPTop<FPDATA_IN>(read_address, read_req_valid, write_address, write_req_valid, write_data, read_ack, write_ack, port_read_out, port_read_out_valid);
+                //ArbitratedScratchpadDPTop<FPDATA_IN>(read_address, read_req_valid, write_address, write_req_valid, write_data, read_ack, write_ack, port_read_out, port_read_out_valid);
+                plm_in.run(read_address, read_req_valid, write_address, write_req_valid, write_data, read_ack, write_ack, plm_in_read_ready, port_read_out, port_read_out_valid);
+
                 complete = true;
                 if (write_req_valid[0] == true) {
                     if (!write_ack[0]) {
@@ -191,7 +193,8 @@ COMPUTE_DATA_IN_LOOP:
 COMPUTE_DATA_IN_ARBITER_COMPLETE_LOOP:
             while (!complete) {
                 complete = true;
-                ArbitratedScratchpadDPTop<FPDATA_IN>(read_address, read_req_valid, write_address, write_req_valid, plm_in_write_data, read_ack, write_ack, plm_in_port_read_out, port_read_out_valid);
+                //ArbitratedScratchpadDPTop<FPDATA_IN>(read_address, read_req_valid, write_address, write_req_valid, plm_in_write_data, read_ack, write_ack, plm_in_port_read_out, port_read_out_valid);
+                plm_in.run(read_address, read_req_valid, write_address, write_req_valid, plm_in_write_data, read_ack, write_ack, plm_in_read_ready, plm_in_port_read_out, port_read_out_valid);
 
                 data = plm_in_port_read_out[1];
 
@@ -239,7 +242,9 @@ COMPUTE_DATA_OUT_LOOP:
 #pragma hls_unroll no
 COMPUTE_DATA_OUT_ARBITER_COMPLETE_LOOP:
             while (!complete) {
-                ArbitratedScratchpadDPTop<FPDATA_OUT>(read_address, read_req_valid, write_address, write_req_valid, plm_out_write_data, read_ack, write_ack, plm_out_port_read_out, port_read_out_valid);
+                //ArbitratedScratchpadDPTop<FPDATA_OUT>(read_address, read_req_valid, write_address, write_req_valid, plm_out_write_data, read_ack, write_ack, plm_out_port_read_out, port_read_out_valid);
+                plm_out.run(read_address, read_req_valid, write_address, write_req_valid, plm_out_write_data, read_ack, write_ack, plm_out_read_ready, plm_out_port_read_out, port_read_out_valid);
+
                 complete = true;
                 if (write_req_valid[0] == true) {
                     if (!write_ack[0]) {
@@ -322,7 +327,8 @@ STORE_LOOP:
 STORE_ARBITER_COMPLETE_LOOP:
             while (!complete) {
                 complete = true;
-                ArbitratedScratchpadDPTop<FPDATA_OUT>(read_address, read_req_valid, write_address, write_req_valid, write_data, read_ack, write_ack, port_read_out, port_read_out_valid);
+                //ArbitratedScratchpadDPTop<FPDATA_OUT>(read_address, read_req_valid, write_address, write_req_valid, write_data, read_ack, write_ack, port_read_out, port_read_out_valid)
+                plm_out.run(read_address, read_req_valid, write_address, write_req_valid, write_data, read_ack, write_ack, plm_out_read_ready, port_read_out, port_read_out_valid);
 
                 data = port_read_out[1];
 

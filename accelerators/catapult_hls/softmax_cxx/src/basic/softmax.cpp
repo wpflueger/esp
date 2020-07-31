@@ -74,6 +74,7 @@ LOAD_LOOP:
                 // but DATA_WIDTH = 32
                 // discard bits in the DMA range(63,32)
                 // keep bits in the DMA range(31,0)
+                assert(DMA_WIDTH == 64 && "DMA_WIDTH should be 64 (simplicity choice)");
                 ac_int<DATA_WIDTH, false> data_ac;
 #ifndef __SYNTHESIS__
                 while (!dma_read_chnl.available(1)) {}; // Hardware stalls until data ready
@@ -112,6 +113,7 @@ STORE_LOOP:
                 // but DATA_WIDTH = 32
                 // set to a constante value range(63,32)
                 // return results on the range(31,0)
+                assert(DMA_WIDTH == 64 && "DMA_WIDTH should be 64 (simplicity choice)");
                 ac_int<DMA_WIDTH, false> data_ac;
                 ac_int<32, false> DEADBEEF = 0xdeadbeef;
                 data_ac.set_slc(32, DEADBEEF.template slc<32>(0));

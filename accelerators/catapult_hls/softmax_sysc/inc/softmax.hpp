@@ -20,6 +20,8 @@
 //public:
 //   T data[S];
 //};
+//typedef plm_t<FPDATA_IN, PLM_SIZE> plm_in_t;
+//typedef plm_t<FPDATA_OUT, PLM_SIZE> plm_out_t;
 
 // NoC-/Accelerator-interface dimensions
 #define DMA_WIDTH 64
@@ -33,9 +35,49 @@ typedef ac_int<DMA_WIDTH, false> dma_data_t;
 
 #define BATCH_MAX 16
 
+// -----------------------------------------
+#include <ArbitratedScratchpadDP.h>
+
+#include "softmax_fpdata.hpp"
+
+#ifndef NUM_READ_PORTS
+#define NUM_READ_PORTS 2
+#endif
+
+#ifndef NUM_WRITE_PORTS
+#define NUM_WRITE_PORTS 2
+#endif
+
+
+#ifndef NUM_BANKS
+#define NUM_BANKS 2
+#endif
+
+#ifndef NUM_ENTRIES_PER_BANK
+#define NUM_ENTRIES_PER_BANK PLM_SIZE
+#endif
+
+const unsigned int kNumBanks = NUM_BANKS;
+const unsigned int kNumReadPorts = NUM_READ_PORTS;
+const unsigned int kNumWritePorts = NUM_WRITE_PORTS;
+const unsigned int kEntriesPerBank = NUM_ENTRIES_PER_BANK;
+
+const unsigned int kAddressSize = nvhls::index_width<NUM_BANKS * NUM_ENTRIES_PER_BANK>::val;
+
+typedef NVUINTW(kAddressSize) Address;
+
 // PLM typedefs
-//typedef plm_t<FPDATA_IN, PLM_SIZE> plm_in_t;
-//typedef plm_t<FPDATA_OUT, PLM_SIZE> plm_out_t;
+typedef ArbitratedScratchpadDP<NUM_BANKS, NUM_READ_PORTS, NUM_WRITE_PORTS, NUM_ENTRIES_PER_BANK, FPDATA_IN> plm_in_t;
+typedef ArbitratedScratchpadDP<NUM_BANKS, NUM_READ_PORTS, NUM_WRITE_PORTS, NUM_ENTRIES_PER_BANK, FPDATA_OUT> plm_out_t;
+// -----------------------------------------
+
+// Private local memories
+static plm_in_t plm_in;
+static plm_out_t plm_out;
+
+static bool plm_in_read_ready[NUM_READ_PORTS];
+static bool plm_out_read_ready[NUM_READ_PORTS];
+
 
 SC_MODULE(softmax_sysc) {
 public:

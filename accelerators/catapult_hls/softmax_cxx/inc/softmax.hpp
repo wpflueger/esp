@@ -11,7 +11,6 @@
 #include <ac_sync.h>
 
 // NoC-/Accelerator-interface dimensions
-#define DMA_WIDTH 64
 #define DMA_SIZE SIZE_DWORD
 
 typedef ac_int<DMA_WIDTH, false> dma_data_t;

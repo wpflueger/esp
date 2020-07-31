@@ -18,6 +18,7 @@ endif
 
 INCDIR ?=
 INCDIR += -I../tb
+INCDIR += -I../tb/tests
 INCDIR += -I../inc
 INCDIR += -I../common
 INCDIR += -I$(SYSTEMC)/include
@@ -28,6 +29,7 @@ INCDIR += -I$(ESP_ROOT)/accelerators/catapult_hls/common/matchlib/cmod/include
 INCDIR += -I$(BOOST_HOME)/include
 
 CXXFLAGS ?=
+CXXFLAGS += -MMD
 CXXFLAGS += -g
 CXXFLAGS += -O0
 CXXFLAGS += $(INCDIR)
@@ -56,6 +58,7 @@ TARGET = $(ACCELERATOR)
 
 VPATH ?=
 VPATH += ../tb
+VPATH += ../tb/tests
 VPATH += ../inc
 VPATH += ../src
 VPATH += ../common
@@ -66,6 +69,7 @@ SRCS += $(foreach s, $(wildcard ../src/*.cpp) $(wildcard ../tb/*.cpp), $(shell b
 #SRCS += $(foreach s, $(wildcard $(ESP_ROOT)/accelerators/catapult_hls/common/syn-templates/core/systems/*.cpp), $(shell basename $(s)))
 
 OBJS := $(SRCS:.cpp=.o)
+-include $(OBJS:.o=.d)
 
 HDRS ?=
 HDRS += $(wildcard ../inc/*.hpp) $(wildcard ../tb/*.hpp)
@@ -87,6 +91,6 @@ run: $(TARGET)
 	$(QUIET_RUN) LD_LIBRARY_PATH=$(LD_LIBRARY_PATH):$(SYSTEMC)/lib-linux64 ./$< $(RUN_ARGS)
 
 clean:
-	$(QUIET_CLEAN)rm -f *.o *.txt *.vcd $(TARGET)
+	$(QUIET_CLEAN)rm -f *.o *.d *.txt *.vcd $(TARGET)
 
 .PHONY: all clean run
