@@ -4,9 +4,9 @@ ifeq ("$(CATAPULT_PATH)", "")
 $(error please define CATAPULT_PATH required for Catapult HLS library headers)
 endif
 
-#ifeq ("$(MGC_HOME)", "")
-#$(error please define MGC_HOME required for Catapult HLS library headers)
-#endif
+ifeq ("$(MGC_HOME)", "")
+$(error please define MGC_HOME required for Catapult HLS library headers)
+endif
 
 ifeq ("$(SYSTEMC)", "")
 $(error please define SYSTEMC to execute a standalone simulation)
