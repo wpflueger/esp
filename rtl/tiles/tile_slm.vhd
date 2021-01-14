@@ -38,6 +38,8 @@ entity tile_slm is
     SIMULATION   : boolean := false;
     this_has_dco : integer range 0 to 1 := 0;
     test_if_en   : integer range 0 to 1 := 0;
+    this_has_ddr : integer range 0 to 1 := 0;
+    dco_rst_cfg  : std_logic_vector(18 downto 0) := (others => '0');
     ROUTER_PORTS : ports_vec := "11111";
     HAS_SYNC     : integer range 0 to 1 := 1);
   port (
@@ -49,6 +51,15 @@ entity tile_slm is
     pllclk             : out std_ulogic;
     dco_clk            : out std_ulogic;
     dco_clk_lock       : out std_ulogic;
+    -- DDR controller ports (this_has_ddr -> 1)
+    dco_clk_div2       : out std_ulogic;
+    dco_clk_div2_90    : out std_ulogic;
+    ddr_ahbsi          : out ahb_slv_in_type;
+    ddr_ahbso          : in  ahb_slv_out_type;
+    ddr_cfg0           : out std_logic_vector(31 downto 0);
+    ddr_cfg1           : out std_logic_vector(31 downto 0);
+    ddr_cfg2           : out std_logic_vector(31 downto 0);
+    slmddr_id          : out integer range 0 to SLMDDR_ID_RANGE_MSB;
     -- Test interface
     tdi                : in  std_logic;
     tdo                : out std_logic;
@@ -352,6 +363,7 @@ begin
     dco_i: dco
       generic map (
         tech => CFG_FABTECH,
+        enable_div2 => this_has_ddr,
         dlog => 9)                      -- come out of reset after NoC, but
                                         -- before tile_io.
       port map (
@@ -364,21 +376,30 @@ begin
         div_sel  => dco_div_sel,
         freq_sel => dco_freq_sel,
         clk      => dco_clk,
+        clk_div2 => dco_clk_div2,
+        clk_div2_90 => dco_clk_div2_90,
         clk_div  => pllclk,
         lock     => dco_clk_lock);
-
-    dco_freq_sel <= tile_config(ESP_CSR_DCO_CFG_MSB - 0  downto ESP_CSR_DCO_CFG_MSB - 0  - 1);
-    dco_div_sel  <= tile_config(ESP_CSR_DCO_CFG_MSB - 2  downto ESP_CSR_DCO_CFG_MSB - 2  - 2);
-    dco_fc_sel   <= tile_config(ESP_CSR_DCO_CFG_MSB - 5  downto ESP_CSR_DCO_CFG_MSB - 5  - 5);
-    dco_cc_sel   <= tile_config(ESP_CSR_DCO_CFG_MSB - 11 downto ESP_CSR_DCO_CFG_MSB - 11 - 5);
-    dco_clk_sel  <= tile_config(ESP_CSR_DCO_CFG_LSB + 1);
-    dco_en       <= raw_rstn and tile_config(ESP_CSR_DCO_CFG_LSB);
-
   end generate dco_gen;
+
+  -- DCO runtime reconfiguration
+  dco_freq_sel <= tile_config(ESP_CSR_DCO_CFG_MSB - 0  downto ESP_CSR_DCO_CFG_MSB - 0  - 1);
+  dco_div_sel  <= tile_config(ESP_CSR_DCO_CFG_MSB - 2  downto ESP_CSR_DCO_CFG_MSB - 2  - 2);
+  dco_fc_sel   <= tile_config(ESP_CSR_DCO_CFG_MSB - 5  downto ESP_CSR_DCO_CFG_MSB - 5  - 5);
+  dco_cc_sel   <= tile_config(ESP_CSR_DCO_CFG_MSB - 11 downto ESP_CSR_DCO_CFG_MSB - 11 - 5);
+  dco_clk_sel  <= tile_config(ESP_CSR_DCO_CFG_LSB + 1);
+  dco_en       <= raw_rstn and tile_config(ESP_CSR_DCO_CFG_LSB);
+
 
   no_dco_gen: if this_has_dco = 0 generate
     pllclk <= '0';
   end generate no_dco_gen;
+
+  -- DDR Controller configuration
+  ddr_cfg0 <= tile_config(ESP_CSR_DDR_CFG0_MSB downto ESP_CSR_DDR_CFG0_LSB);
+  ddr_cfg1 <= tile_config(ESP_CSR_DDR_CFG1_MSB downto ESP_CSR_DDR_CFG1_LSB);
+  ddr_cfg2 <= tile_config(ESP_CSR_DDR_CFG2_MSB downto ESP_CSR_DDR_CFG2_LSB);
+
 
   -----------------------------------------------------------------------------
   -- JTAG for single tile testing / bypass when test_if_en = 0
@@ -471,6 +492,8 @@ begin
   -----------------------------------------------------------------------------
   tile_id           <= to_integer(unsigned(tile_config(ESP_CSR_TILE_ID_MSB downto ESP_CSR_TILE_ID_LSB)));
   pad_cfg           <= tile_config(ESP_CSR_PAD_CFG_MSB downto ESP_CSR_PAD_CFG_LSB);
+
+  slmddr_id         <= tile_slmddr_id(tile_id);
 
   this_slm_id       <= tile_slm_id(tile_id);
   this_slm_hindex   <= slm_hindex(this_slm_id);
@@ -633,7 +656,8 @@ begin
   ahb2 : ahbctrl                        -- AHB arbiter/multiplexer
     generic map (defmast => 0, split => CFG_SPLIT,
                  rrobin  => CFG_RROBIN, ioaddr => CFG_AHBIO, fpnpen => CFG_FPNPEN,
-                 nahbm   => maxahbm, nahbs => maxahbs)
+                 nahbm   => maxahbm, nahbs => maxahbs,
+                 cfgmask => 0)
     port map (rst, clk, ahbmi, ahbmo, ahbsi, ahbso);
 
 
@@ -661,20 +685,30 @@ begin
   -- Local devices
   -----------------------------------------------------------------------------
 
-  -- Shared Local Memory (SLM)
-  ahbslm_1: ahbslm
-    generic map (
-      SIMULATION => SIMULATION,
-      hindex => 0,
-      tech   => CFG_FABTECH,
-      kbytes => CFG_SLM_KBYTES)
-    port map (
-      rst    => rst,
-      clk    => clk,
-      haddr  => this_slm_haddr,
-      hmask  => this_slm_hmask,
-      ahbsi  => ahbsi,
-      ahbso  => ahbso(0));
+  onchip_gen: if this_has_ddr = 0 generate
+    -- Shared Local Memory (SLM)
+    ahbslm_1: ahbslm
+      generic map (
+        SIMULATION => SIMULATION,
+        hindex => 0,
+        tech   => CFG_FABTECH,
+        kbytes => CFG_SLM_KBYTES)
+      port map (
+        rst    => rst,
+        clk    => clk,
+        haddr  => this_slm_haddr,
+        hmask  => this_slm_hmask,
+        ahbsi  => ahbsi,
+        ahbso  => ahbso(0));
+
+    ddr_ahbsi <= ahbs_in_none;
+  end generate onchip_gen;
+
+  offchip_gen: if this_has_ddr /= 0 generate
+    -- Shared Offchip Memory
+    ddr_ahbsi <= ahbsi;
+    ahbso(0)  <= ddr_ahbso;
+  end generate offchip_gen;
 
 
   -----------------------------------------------------------------------------
@@ -725,7 +759,8 @@ begin
   -- Memory mapped registers
   slm_tile_csr : esp_tile_csr
     generic map(
-      pindex  => 0)
+      pindex      => 0,
+      dco_rst_cfg => dco_rst_cfg)
     port map(
       clk => clk,
       rstn => rst,
